@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expense Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] } } }
+    };
+  </script>
+  <style>
+    body {
+      background:
+        radial-gradient(60rem 40rem at 10% -10%, rgba(99,102,241,.25), transparent 60%),
+        radial-gradient(50rem 35rem at 100% 0%, rgba(236,72,153,.18), transparent 55%),
+        radial-gradient(50rem 40rem at 50% 110%, rgba(16,185,129,.18), transparent 60%),
+        #f5f7ff;
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(255,255,255,.65);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,.8);
+      box-shadow: 0 10px 30px -12px rgba(30,41,59,.18), 0 2px 6px rgba(30,41,59,.04);
+    }
+    .tx-row { animation: slideIn .35s ease both; transition: opacity .3s ease, transform .3s ease, max-height .3s ease, margin .3s ease, padding .3s ease; max-height: 120px; overflow: hidden; }
+    .tx-row.removing { opacity: 0; transform: translateX(24px) scale(.97); max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .pop { animation: pop .4s ease; }
+    @keyframes pop { 50% { transform: scale(1.04); } }
+    input:focus, select:focus { outline: none; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.3); border-radius: 8px; }
+  </style>
+</head>
+<body class="font-sans text-slate-800 antialiased">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <div class="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center shadow-lg shadow-indigo-500/30">
+          <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm10 8h2"/></svg>
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Expense Tracker</h1>
+          <p class="text-sm text-slate-500">Know where your money goes.</p>
+        </div>
+      </div>
+      <div id="todayLabel" class="hidden sm:block text-sm font-medium text-slate-500 glass rounded-full px-4 py-2"></div>
+    </header>
+
+    <!-- Summary cards -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      <div id="cardBalance" class="relative overflow-hidden rounded-3xl p-6 text-white bg-gradient-to-br from-indigo-600 via-indigo-500 to-fuchsia-500 shadow-xl shadow-indigo-500/30">
+        <div class="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10"></div>
+        <div class="absolute -right-2 bottom-[-3rem] h-32 w-32 rounded-full bg-white/10"></div>
+        <p class="text-sm font-medium text-white/80">Total Balance</p>
+        <p id="totalBalance" class="mt-2 text-4xl font-extrabold tracking-tight">$0.00</p>
+        <p class="mt-3 text-xs text-white/70" id="txCount">0 transactions</p>
+      </div>
+
+      <div class="glass rounded-3xl p-6">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-medium text-slate-500">Total Income</p>
+          <span class="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-600 grid place-items-center">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H8m9 0v9"/></svg>
+          </span>
+        </div>
+        <p id="totalIncome" class="mt-2 text-3xl font-extrabold text-emerald-600 tracking-tight">$0.00</p>
+        <div class="mt-4 h-1.5 rounded-full bg-slate-200/70 overflow-hidden"><div id="incomeBar" class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div></div>
+      </div>
+
+      <div class="glass rounded-3xl p-6">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-medium text-slate-500">Total Expenses</p>
+          <span class="h-9 w-9 rounded-xl bg-rose-100 text-rose-600 grid place-items-center">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 7L7 17m0 0h9m-9 0V8"/></svg>
+          </span>
+        </div>
+        <p id="totalExpenses" class="mt-2 text-3xl font-extrabold text-rose-600 tracking-tight">$0.00</p>
+        <div class="mt-4 h-1.5 rounded-full bg-slate-200/70 overflow-hidden"><div id="expenseBar" class="h-full rounded-full bg-rose-500 transition-all duration-500" style="width:0%"></div></div>
+      </div>
+    </section>
+
+    <!-- Main grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <!-- Form -->
+      <section class="lg:col-span-2">
+        <form id="txForm" class="glass rounded-3xl p-6 lg:sticky lg:top-6" novalidate>
+          <h2 class="text-lg font-bold">Add Transaction</h2>
+          <p class="text-sm text-slate-500 mb-5">Record income or an expense.</p>
+
+          <!-- Type toggle -->
+          <div class="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-slate-200/60 mb-5" role="radiogroup" aria-label="Type">
+            <label class="cursor-pointer">
+              <input type="radio" name="type" value="income" class="peer sr-only" />
+              <span class="block text-center py-2.5 rounded-xl text-sm font-semibold text-slate-500 transition peer-checked:bg-white peer-checked:text-emerald-600 peer-checked:shadow">Income</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="type" value="expense" class="peer sr-only" checked />
+              <span class="block text-center py-2.5 rounded-xl text-sm font-semibold text-slate-500 transition peer-checked:bg-white peer-checked:text-rose-600 peer-checked:shadow">Expense</span>
+            </label>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label for="title" class="block text-xs font-semibold text-slate-600 mb-1.5">Title</label>
+              <input id="title" type="text" maxlength="60" placeholder="e.g. Groceries"
+                class="w-full rounded-xl bg-white/80 border border-slate-200 px-4 py-3 text-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="amount" class="block text-xs font-semibold text-slate-600 mb-1.5">Amount</label>
+                <div class="relative">
+                  <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                  <input id="amount" type="number" min="0" step="0.01" placeholder="0.00"
+                    class="w-full rounded-xl bg-white/80 border border-slate-200 pl-8 pr-4 py-3 text-sm placeholder-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition" />
+                </div>
+              </div>
+              <div>
+                <label for="date" class="block text-xs font-semibold text-slate-600 mb-1.5">Date</label>
+                <input id="date" type="date"
+                  class="w-full rounded-xl bg-white/80 border border-slate-200 px-4 py-3 text-sm focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition" />
+              </div>
+            </div>
+          </div>
+
+          <p id="formError" class="hidden mt-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-4 py-2.5"></p>
+
+          <button type="submit"
+            class="mt-6 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-500 text-white font-semibold py-3 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:-translate-y-0.5 active:translate-y-0 transition">
+            Add Transaction
+          </button>
+        </form>
+      </section>
+
+      <!-- List -->
+      <section class="lg:col-span-3">
+        <div class="glass rounded-3xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-bold">Transactions</h2>
+              <p class="text-sm text-slate-500">Newest first</p>
+            </div>
+            <div id="filters" class="flex gap-1 p-1 rounded-xl bg-slate-200/60 text-xs font-semibold">
+              <button data-filter="all" class="filter-btn px-3 py-1.5 rounded-lg">All</button>
+              <button data-filter="income" class="filter-btn px-3 py-1.5 rounded-lg">Income</button>
+              <button data-filter="expense" class="filter-btn px-3 py-1.5 rounded-lg">Expense</button>
+            </div>
+          </div>
+
+          <ul id="txList" class="space-y-2.5 max-h-[34rem] overflow-y-auto pr-1"></ul>
+
+          <!-- Empty state -->
+          <div id="emptyState" class="hidden text-center py-12 px-4">
+            <svg class="mx-auto h-40 w-40" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#818cf8"/><stop offset="1" stop-color="#e879f9"/>
+                </linearGradient>
+              </defs>
+              <circle cx="100" cy="100" r="80" fill="url(#g1)" opacity=".12"/>
+              <rect x="48" y="62" width="104" height="80" rx="14" fill="white" stroke="#c7d2fe" stroke-width="2"/>
+              <rect x="48" y="78" width="104" height="14" fill="url(#g1)" opacity=".5"/>
+              <rect x="60" y="104" width="38" height="7" rx="3.5" fill="#e2e8f0"/>
+              <rect x="60" y="118" width="24" height="7" rx="3.5" fill="#e2e8f0"/>
+              <circle cx="136" cy="118" r="11" fill="url(#g1)"/>
+              <path d="M136 112v12M130 118h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="46" cy="52" r="4" fill="#a5b4fc"/><circle cx="160" cy="48" r="3" fill="#f0abfc"/><circle cx="168" cy="150" r="5" fill="#c7d2fe"/>
+            </svg>
+            <h3 class="mt-4 text-lg font-bold">No transactions yet</h3>
+            <p class="mt-1 text-sm text-slate-500 max-w-xs mx-auto">Add your first income or expense using the form to see your balance come to life.</p>
+            <button id="sampleBtn" class="mt-5 text-sm font-semibold text-indigo-600 hover:text-indigo-700 underline underline-offset-4">Load sample data</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-10 text-center text-xs text-slate-400">Data is stored in your browser only.</footer>
+  </div>
+
+<script>
+  // ---- Core data structure: an array of transaction objects ----
+  // { id: string, title: string, amount: number, type: 'income' | 'expense', date: 'YYYY-MM-DD' }
+  let transactions = [];
+  let activeFilter = 'all';
+  const STORAGE_KEY = 'expense-tracker-transactions';
+
+  // ---- Helpers ----
+  const $ = (id) => document.getElementById(id);
+  const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  const money = (n) => fmt.format(n);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const todayISO = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  };
+  const prettyDate = (iso) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const escapeHTML = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); } catch (e) {}
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) transactions = parsed;
+      }
+    } catch (e) {}
+  }
+
+  // ---- Summary (calculated dynamically from the array) ----
+  function renderSummary() {
+    const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const balance = income - expenses;
+    const total = income + expenses;
+
+    $('totalIncome').textContent = money(income);
+    $('totalExpenses').textContent = money(expenses);
+    $('totalBalance').textContent = money(balance);
+    $('txCount').textContent = `${transactions.length} transaction${transactions.length === 1 ? '' : 's'}`;
+    $('incomeBar').style.width = total ? (income / total * 100) + '%' : '0%';
+    $('expenseBar').style.width = total ? (expenses / total * 100) + '%' : '0%';
+
+    const card = $('cardBalance');
+    card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
+  }
+
+  // ---- List ----
+  function rowHTML(t) {
+    const isIncome = t.type === 'income';
+    const badge = isIncome
+      ? 'bg-emerald-100 text-emerald-700'
+      : 'bg-rose-100 text-rose-700';
+    const amountColor = isIncome ? 'text-emerald-600' : 'text-rose-600';
+    const sign = isIncome ? '+' : '−';
+    const icon = isIncome
+      ? 'M7 17L17 7M17 7H8m9 0v9'
+      : 'M17 7L7 17m0 0h9m-9 0V8';
+    const iconBg = isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600';
+    return `
+      <li class="tx-row group flex items-center gap-4 rounded-2xl bg-white/80 border border-white px-4 py-3.5 hover:shadow-md hover:-translate-y-px" data-id="${t.id}">
+        <span class="h-10 w-10 shrink-0 rounded-xl grid place-items-center ${iconBg}">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="${icon}"/></svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold truncate">${escapeHTML(t.title)}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badge}">${isIncome ? 'Income' : 'Expense'}</span>
+            <span class="text-xs text-slate-500">${prettyDate(t.date)}</span>
+          </div>
+        </div>
+        <p class="font-bold tabular-nums ${amountColor}">${sign}${money(t.amount)}</p>
+        <button class="delete-btn h-9 w-9 shrink-0 rounded-xl grid place-items-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition sm:opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label="Delete ${escapeHTML(t.title)}" data-id="${t.id}">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </li>`;
+  }
+
+  function renderList() {
+    const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    const visible = sorted.filter(t => activeFilter === 'all' || t.type === activeFilter);
+    $('txList').innerHTML = visible.map(rowHTML).join('');
+
+    const empty = transactions.length === 0;
+    $('emptyState').classList.toggle('hidden', !empty);
+    $('filters').classList.toggle('hidden', empty);
+    if (!empty && visible.length === 0) {
+      $('txList').innerHTML = `<li class="text-center text-sm text-slate-500 py-10">No ${activeFilter} transactions.</li>`;
+    }
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      const on = btn.dataset.filter === activeFilter;
+      btn.classList.toggle('bg-white', on);
+      btn.classList.toggle('shadow', on);
+      btn.classList.toggle('text-indigo-600', on);
+      btn.classList.toggle('text-slate-500', !on);
+    });
+  }
+
+  function render() { renderSummary(); renderList(); }
+
+  // ---- Actions ----
+  function addTransaction({ title, amount, type, date }) {
+    transactions.push({ id: uid(), title, amount, type, date });  // push into the array
+    save();
+    render();
+  }
+
+  function deleteTransaction(id) {
+    const row = document.querySelector(`.tx-row[data-id="${id}"]`);
+    const commit = () => {
+      transactions = transactions.filter(t => t.id !== id);       // remove from the array
+      save();
+      render();
+    };
+    if (row) {
+      row.classList.add('removing');
+      setTimeout(commit, 300);
+    } else {
+      commit();
+    }
+  }
+
+  // ---- Events ----
+  $('txForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = $('title').value.trim();
+    const amount = parseFloat($('amount').value);
+    const date = $('date').value;
+    const type = document.querySelector('input[name="type"]:checked').value;
+    const err = $('formError');
+
+    let msg = '';
+    if (!title) msg = 'Please enter a title.';
+    else if (!isFinite(amount) || amount <= 0) msg = 'Please enter an amount greater than 0.';
+    else if (!date) msg = 'Please choose a date.';
+
+    if (msg) { err.textContent = msg; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+
+    addTransaction({ title, amount: Math.round(amount * 100) / 100, type, date });
+    $('title').value = '';
+    $('amount').value = '';
+    $('date').value = todayISO();
+    $('title').focus();
+  });
+
+  $('txList').addEventListener('click', (e) => {
+    const btn = e.target.closest('.delete-btn');
+    if (btn) deleteTransaction(btn.dataset.id);
+  });
+
+  $('filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    activeFilter = btn.dataset.filter;
+    renderList();
+  });
+
+  $('sampleBtn').addEventListener('click', () => {
+    const d = (offset) => {
+      const x = new Date(); x.setDate(x.getDate() - offset);
+      return new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    };
+    [
+      { title: 'Monthly Salary', amount: 4200, type: 'income', date: d(9) },
+      { title: 'Rent', amount: 1350, type: 'expense', date: d(8) },
+      { title: 'Freelance Project', amount: 780, type: 'income', date: d(5) },
+      { title: 'Groceries', amount: 96.4, type: 'expense', date: d(3) },
+      { title: 'Electric Bill', amount: 72.15, type: 'expense', date: d(2) },
+      { title: 'Coffee & Lunch', amount: 18.5, type: 'expense', date: d(0) },
+    ].forEach(t => transactions.push({ id: uid(), ...t }));
+    save();
+    render();
+  });
+
+  // ---- Init ----
+  $('date').value = todayISO();
+  $('todayLabel').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  load();
+  render();
+</script>
+</body>
+</html>
